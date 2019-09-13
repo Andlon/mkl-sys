@@ -26,4 +26,9 @@ The API exposed by this crate should be considered unstable until these issues h
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+/// The integer type used by the underlying MKL library.
+///
+/// TODO: Update this to account for use of i64 integers once we support this.
+pub type MklInt = i32;
+
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));

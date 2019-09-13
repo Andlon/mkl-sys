@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[cfg(feature="all")]
 const WRAP_ALL: bool = true;
 
-// TODO: I
+// TODO: There must be a better way than enumerating all features?
 #[cfg(not(any(feature = "dss")))]
 const WRAP_ALL: bool = true;
 
