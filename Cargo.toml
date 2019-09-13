@@ -6,6 +6,10 @@ edition = "2018"
 
 build = "build.rs"
 
+[features]
+all = []
+dss = []
+
 [dependencies]
 
 [build-dependencies]
