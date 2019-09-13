@@ -1,14 +1,23 @@
 use std::env;
 use std::path::PathBuf;
 
+#[cfg(feature="all")]
+const WRAP_ALL: bool = true;
+
+// TODO: I
+#[cfg(not(any(feature = "dss")))]
+const WRAP_ALL: bool = true;
+
+#[cfg(any(feature = "dss"))]
+const WRAP_ALL: bool = false;
+
 fn main() {
     pkg_config::probe_library("mkl-dynamic-lp64-seq").unwrap();
 
     #[allow(unused_mut)]
     let mut builder = bindgen::Builder::default();
 
-    #[cfg(feature="all")]
-    {
+    if WRAP_ALL {
         builder = builder.header("wrapper_all.h");
     }
 
