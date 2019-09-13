@@ -28,8 +28,10 @@ fn main() {
     {
         #[cfg(feature="dss")]
         {
-            builder = builder.whitelist_function("dss_.*")
-                .whitelist_function("DSS_.*")
+            let dss_regex = "(.*dss.*)|(.*DSS.*)";
+            builder = builder.whitelist_function(dss_regex)
+                .whitelist_type(dss_regex)
+                .whitelist_var(dss_regex)
                 .header("wrapper_dss.h");
         }
     }
