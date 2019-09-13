@@ -1,0 +1,20 @@
+[package]
+name = "mkl-sys"
+version = "0.1.0"
+authors = ["Andreas Longva <andreas.b.longva@gmail.com>"]
+edition = "2018"
+
+build = "build.rs"
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.51"
+pkg-config = "0.3"
+
+# Need opt-level = 3 for `bindgen` to be able to finish in reasonable time (i.e. 30 secs instead of 10 minutes)
+[profile.dev]
+opt-level = 3
+
+[profile.test]
+opt-level = 3
