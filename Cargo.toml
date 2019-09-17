@@ -3,7 +3,7 @@ name = "mkl-sys"
 version = "0.1.0"
 authors = ["Andreas Longva <andreas.b.longva@gmail.com>"]
 edition = "2018"
-
+links = "mkl"
 build = "build.rs"
 
 [features]
