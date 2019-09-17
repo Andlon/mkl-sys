@@ -2,16 +2,6 @@ use std::env;
 use std::path::PathBuf;
 use bindgen::callbacks::{ParseCallbacks, IntKind};
 
-#[cfg(feature="all")]
-const WRAP_ALL: bool = true;
-
-// TODO: There must be a better way than enumerating all features?
-#[cfg(not(any(feature = "dss")))]
-const WRAP_ALL: bool = true;
-
-#[cfg(any(feature = "dss"))]
-const WRAP_ALL: bool = false;
-
 /// Build the name used for pkg-config library resolution, e.g. "mkl-dynamic-lp64-seq".
 fn build_config_name() -> String {
     let parallelism = if cfg!(feature = "openmp") {
@@ -44,6 +34,14 @@ impl ParseCallbacks for Callbacks {
 }
 
 fn main() {
+    if cfg!(not(any(feature = "all", feature = "dss"))) {
+        panic!(
+"No features selected.
+To use this library, please select the features corresponding \
+to MKL modules that you would like to use, or select the `all` feature if you would \
+like to generate symbols for all modules.");
+    }
+
     let name = build_config_name();
     pkg_config::probe_library(&name).unwrap();
 
@@ -51,7 +49,7 @@ fn main() {
     let mut builder = bindgen::Builder::default()
         .parse_callbacks(Box::new(Callbacks));
 
-    if WRAP_ALL {
+    if cfg!(feature = "all") {
         builder = builder.header("wrapper_all.h");
     }
 
