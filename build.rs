@@ -10,9 +10,13 @@ fn build_config_name() -> String {
         "seq"
     };
 
-    // TODO: Flag for changing integer size
+    let integer_config = if cfg!(feature = "ilp64") {
+        "ilp64"
+    } else {
+        "lp64"
+    };
 
-    format!("mkl-dynamic-{}-{}", "lp64", parallelism)
+    format!("mkl-dynamic-{}-{}", integer_config, parallelism)
 }
 
 #[derive(Debug)]
@@ -24,9 +28,12 @@ impl ParseCallbacks for Callbacks {
         // give different types to different constants, which is inconvenient.
         // MKL expects these constants to be compatible with MKL_INT.
         if &name[..4] == "MKL_" {
-            // TODO: This should be the same as MKL_INT, so need to take care to
-            // reflect that.
-            Some(IntKind::I32)
+            // Important: this should be the same as MKL_INT
+            if cfg!(feature = "ilp64") {
+                Some(IntKind::I64)
+            } else {
+                Some(IntKind::I32)
+            }
         } else {
             None
         }
@@ -36,18 +43,36 @@ impl ParseCallbacks for Callbacks {
 fn main() {
     if cfg!(not(any(feature = "all", feature = "dss"))) {
         panic!(
-"No features selected.
+"No MKL modules selected.
 To use this library, please select the features corresponding \
-to MKL modules that you would like to use, or select the `all` feature if you would \
+to MKL modules that you would like to use, or enable the `all` feature if you would \
 like to generate symbols for all modules.");
     }
 
     let name = build_config_name();
-    pkg_config::probe_library(&name).unwrap();
+    let library = pkg_config::probe_library(&name).unwrap();
+
+    // Use information obtained from pkg-config to setup args for clang used by bindgen.
+    // Otherwise we don't get e.g. the correct MKL preprocessor definitions).
+    let clang_args = {
+        let mut args = Vec::new();
+        for (key, val) in library.defines {
+            if let Some(value) = val {
+                args.push(format!("-D{}={}", key, value));
+            } else {
+                args.push(format!("-D{}", key));
+            }
+        }
+        for path in library.include_paths {
+            args.push(format!("-I{}", path.display()));
+        }
+        args
+    };
 
     #[allow(unused_mut)]
     let mut builder = bindgen::Builder::default()
-        .parse_callbacks(Box::new(Callbacks));
+        .parse_callbacks(Box::new(Callbacks))
+        .clang_args(clang_args);
 
     if cfg!(feature = "all") {
         builder = builder.header("wrapper_all.h");

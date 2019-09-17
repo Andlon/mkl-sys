@@ -9,7 +9,9 @@ build = "build.rs"
 [features]
 all = []
 dss = []
+
 openmp = []
+ilp64 = []
 
 [dependencies]
 

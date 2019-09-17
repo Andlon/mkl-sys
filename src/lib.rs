@@ -56,6 +56,9 @@ Direct Sparse Solver (DSS) interface.
 /// The integer type used by the underlying MKL library.
 ///
 /// TODO: Update this to account for use of i64 integers once we support this.
+#[cfg(not(feature = "ilp64"))]
 pub type MKL_INT = i32;
+#[cfg(feature = "ilp64")]
+pub type MKL_INT = i64;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
