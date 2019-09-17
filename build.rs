@@ -12,6 +12,19 @@ const WRAP_ALL: bool = true;
 #[cfg(any(feature = "dss"))]
 const WRAP_ALL: bool = false;
 
+/// Build the name used for pkg-config library resolution, e.g. "mkl-dynamic-lp64-seq".
+fn build_config_name() -> String {
+    let parallelism = if cfg!(feature = "openmp") {
+        "iomp"
+    } else {
+        "seq"
+    };
+
+    // TODO: Flag for changing integer size
+
+    format!("mkl-dynamic-{}-{}", "lp64", parallelism)
+}
+
 #[derive(Debug)]
 pub struct Callbacks;
 
@@ -31,7 +44,8 @@ impl ParseCallbacks for Callbacks {
 }
 
 fn main() {
-    pkg_config::probe_library("mkl-dynamic-lp64-seq").unwrap();
+    let name = build_config_name();
+    pkg_config::probe_library(&name).unwrap();
 
     #[allow(unused_mut)]
     let mut builder = bindgen::Builder::default()

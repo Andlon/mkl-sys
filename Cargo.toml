@@ -9,6 +9,7 @@ build = "build.rs"
 [features]
 all = []
 dss = []
+openmp = []
 
 [dependencies]
 
