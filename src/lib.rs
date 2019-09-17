@@ -27,7 +27,8 @@ on compilation time may be severe. See "Known issues" below.
 By default, the sequential version of MKL is used. To enable OpenMP support, enable the
 `openmp` feature.
 
-Currently only 32-bit integers are supported. That is, the `lp64` configuration is used.
+By default, 32-bit integers are used for indexing. This corresponds to the `lp64` configuration
+of MKL. To use 64-bit integers with the `ilp64` configuration, enable the `ilp64` feature.
 
 Please refer to the Intel MKL documentation for how to use the functions exposed by this crate.
 
@@ -54,8 +55,6 @@ Direct Sparse Solver (DSS) interface.
 #![allow(non_snake_case)]
 
 /// The integer type used by the underlying MKL library.
-///
-/// TODO: Update this to account for use of i64 integers once we support this.
 #[cfg(not(feature = "ilp64"))]
 pub type MKL_INT = i32;
 #[cfg(feature = "ilp64")]
