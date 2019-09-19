@@ -41,7 +41,7 @@ impl ParseCallbacks for Callbacks {
 }
 
 fn main() {
-    if cfg!(not(any(feature = "all", feature = "dss"))) {
+    if cfg!(not(any(feature = "all", feature = "dss", feature = "sparse-matrix-checker"))) {
         panic!(
 "No MKL modules selected.
 To use this library, please select the features corresponding \
@@ -90,6 +90,13 @@ like to generate symbols for all modules.");
                 .whitelist_type(dss_regex)
                 .whitelist_var(dss_regex)
                 .header("wrapper_dss.h");
+        }
+
+        #[cfg(feature="sparse-matrix-checker")]
+        {
+            builder = builder.whitelist_function("sparse_matrix_checker*")
+                .whitelist_function("sparse_matrix_checker_init*")
+                .header("wrapper_sparse_matrix_checker.h")
         }
     }
 

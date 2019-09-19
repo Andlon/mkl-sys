@@ -7,9 +7,12 @@ links = "mkl"
 build = "build.rs"
 
 [features]
+# Intel MKL module selection
 all = []
 dss = []
+sparse-matrix-checker = []
 
+# Configurations
 openmp = []
 ilp64 = []
 
