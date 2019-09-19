@@ -85,7 +85,7 @@ like to generate symbols for all modules.");
     {
         #[cfg(feature="dss")]
         {
-            let dss_regex = "(.*dss.*)|(.*DSS.*)";
+            let dss_regex = "(dss_.*)|(DSS_.*)|(MKL_DSS.*)";
             builder = builder.whitelist_function(dss_regex)
                 .whitelist_type(dss_regex)
                 .whitelist_var(dss_regex)
