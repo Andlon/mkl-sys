@@ -71,12 +71,9 @@ like to generate symbols for all modules.");
 
     #[allow(unused_mut)]
     let mut builder = bindgen::Builder::default()
+        .header("wrapper.h")
         .parse_callbacks(Box::new(Callbacks))
         .clang_args(clang_args);
-
-    if cfg!(feature = "all") {
-        builder = builder.header("wrapper_all.h");
-    }
 
     // If only part of MKL is needed, we use features to construct whitelists of
     // the needed functionality. These can be overridden with the "all" feature, which
@@ -88,15 +85,13 @@ like to generate symbols for all modules.");
             let dss_regex = "(dss_.*)|(DSS_.*)|(MKL_DSS.*)";
             builder = builder.whitelist_function(dss_regex)
                 .whitelist_type(dss_regex)
-                .whitelist_var(dss_regex)
-                .header("wrapper_dss.h");
+                .whitelist_var(dss_regex);
         }
 
         #[cfg(feature="sparse-matrix-checker")]
         {
             builder = builder.whitelist_function("sparse_matrix_checker*")
-                .whitelist_function("sparse_matrix_checker_init*")
-                .header("wrapper_sparse_matrix_checker.h")
+                .whitelist_function("sparse_matrix_checker_init*");
         }
     }
 
