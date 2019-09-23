@@ -12,6 +12,7 @@ all = []
 dss = []
 sparse-matrix-checker = []
 extended-eigensolver = []
+inspector-executor = []
 
 # Configurations
 openmp = []

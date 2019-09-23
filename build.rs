@@ -44,7 +44,8 @@ fn main() {
     if cfg!(not(any(feature = "all",
                     feature = "dss",
                     feature = "sparse-matrix-checker",
-                    feature = "extended-eigensolver"))) {
+                    feature = "extended-eigensolver",
+                    feature = "inspector-executor"))) {
         panic!(
 "No MKL modules selected.
 To use this library, please select the features corresponding \
@@ -104,6 +105,11 @@ like to generate symbols for all modules.");
                 .whitelist_function("mkl_sparse_._svd")
                 .whitelist_function("mkl_sparse_._ev")
                 .whitelist_function("mkl_sparse_._gv");
+        }
+
+        #[cfg(feature = "inspector-executor")]
+        {
+            builder = builder.whitelist_function("mkl_sparse_.*");
         }
     }
 
