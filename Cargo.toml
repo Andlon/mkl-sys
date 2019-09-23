@@ -11,6 +11,7 @@ build = "build.rs"
 all = []
 dss = []
 sparse-matrix-checker = []
+extended-eigensolver = []
 
 # Configurations
 openmp = []

@@ -41,7 +41,10 @@ impl ParseCallbacks for Callbacks {
 }
 
 fn main() {
-    if cfg!(not(any(feature = "all", feature = "dss", feature = "sparse-matrix-checker"))) {
+    if cfg!(not(any(feature = "all",
+                    feature = "dss",
+                    feature = "sparse-matrix-checker",
+                    feature = "extended-eigensolver"))) {
         panic!(
 "No MKL modules selected.
 To use this library, please select the features corresponding \
@@ -92,6 +95,15 @@ like to generate symbols for all modules.");
         {
             builder = builder.whitelist_function("sparse_matrix_checker*")
                 .whitelist_function("sparse_matrix_checker_init*");
+        }
+
+        #[cfg(feature="extended-eigensolver")]
+        {
+            builder = builder.whitelist_function(".*feast.*")
+                .whitelist_function("mkl_sparse_ee_init")
+                .whitelist_function("mkl_sparse_._svd")
+                .whitelist_function("mkl_sparse_._ev")
+                .whitelist_function("mkl_sparse_._gv");
         }
     }
 

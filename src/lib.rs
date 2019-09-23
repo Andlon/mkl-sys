@@ -21,6 +21,7 @@ features corresponding to MKL modules are:
 - `all`: Create bindings for all modules.
 - `dss`: The Direct Sparse Solver (DSS) interface.
 - `sparse-matrix-checker`: Routines for checking validity of sparse matrix storage.
+- `extended-eigensolver` = Routines for the Extended Eigensolver functionality.
 
 It is strongly recommended to only enable the modules that you need, otherwise the effects
 on compilation time may be severe. See "Known issues" below.
