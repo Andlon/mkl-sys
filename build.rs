@@ -1,6 +1,7 @@
 use std::env;
 use std::path::PathBuf;
 use bindgen::callbacks::{ParseCallbacks, IntKind};
+use bindgen::EnumVariation;
 
 /// Build the name used for pkg-config library resolution, e.g. "mkl-dynamic-lp64-seq".
 fn build_config_name() -> String {
@@ -77,6 +78,7 @@ like to generate symbols for all modules.");
     let mut builder = bindgen::Builder::default()
         .header("wrapper.h")
         .parse_callbacks(Box::new(Callbacks))
+        .default_enum_style(EnumVariation::ModuleConsts)
         .clang_args(clang_args);
 
     // If only part of MKL is needed, we use features to construct whitelists of
