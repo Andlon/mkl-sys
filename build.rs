@@ -130,11 +130,11 @@ fn lib_dirs_windows(mkl_dirs: &MklDirectories) -> Vec<String> {
 }
 
 fn libs_windows() -> Vec<String> {
-    let libs_base = vec!["mkl_core_dll.lib"];
-    let libs_seq = vec!["mkl_sequential_dll.lib"];
-    let libs_omp = vec!["mkl_intel_thread_dll.lib", "libiomp5md.lib"];
-    let libs_lp64 = vec!["mkl_intel_lp64_dll.lib"];
-    let libs_ilp64 = vec!["mkl_intel_ilp64_dll.lib"];
+    let libs_base = vec!["mkl_core_dll"];
+    let libs_seq = vec!["mkl_sequential_dll"];
+    let libs_omp = vec!["mkl_intel_thread_dll", "libiomp5md"];
+    let libs_lp64 = vec!["mkl_intel_lp64_dll"];
+    let libs_ilp64 = vec!["mkl_intel_ilp64_dll"];
 
     let mut libs = libs_base;
 
@@ -233,7 +233,7 @@ like to generate symbols for all modules."
                 let mkl_dirs = MklDirectories::try_new(&mklroot).unwrap();
 
                 for lib_dir in lib_dirs_windows(&mkl_dirs) {
-                    println!("cargo:rustc-link-search=native=\"{}\"", lib_dir);
+                    println!("cargo:rustc-link-search=native={}", lib_dir);
                 }
 
                 for lib in libs_windows() {

@@ -17,6 +17,7 @@ Visual Studio or by running a `vcvars` script (e.g. `C:\Program Files (x86)\Micr
 of MKL (e.g. `C:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019.5.281\windows\mkl`). This can also be done by
 running the `mklvars.bat` script in the `bin` folder of MKL.
 3. The environment variable `LIBCLANG_PATH` used by `bindgen` has to be set to point to the `bin` folder of the Clang installation.
+Note, that during runtime the corresponding DLLs (e.g. located in `C:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019.5.281\windows\redist\intel64_win\mkl`) have to be in `PATH`.
 
 ## Known issues
 - `bindgen` does not seem to be able to properly handle many preprocessor macros, such as e.g. `dss_create`.
