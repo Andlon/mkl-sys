@@ -4,7 +4,8 @@ use mkl_sys::{
 use std::ptr::null_mut;
 
 #[test]
-fn does_run() {
+/// Calls some arbitrary MKL functions to ensure that linking and running an executable works
+fn does_link_and_run() {
     let create_opts = MKL_DSS_DEFAULTS + MKL_DSS_ZERO_BASED_INDEXING;
     let mut handle: _MKL_DSS_HANDLE_t = null_mut();
     unsafe {
