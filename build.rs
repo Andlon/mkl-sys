@@ -1,7 +1,7 @@
-use bindgen::callbacks::{IntKind, ParseCallbacks};
-use bindgen::EnumVariation;
 use std::env;
 use std::path::PathBuf;
+use bindgen::callbacks::{ParseCallbacks, IntKind};
+use bindgen::EnumVariation;
 
 /// Build the name used for pkg-config library resolution, e.g. "mkl-dynamic-lp64-seq".
 fn build_config_name() -> String {
@@ -20,7 +20,7 @@ fn build_config_name() -> String {
     format!("mkl-dynamic-{}-{}", integer_config, parallelism)
 }
 
-// Helper that extracts folders required for linking to MKL from MKLROOT folder
+/// Paths required for linking to MKL from MKLROOT folder
 struct MklDirectories {
     #[allow(dead_code)]
     mkl_root: String,
@@ -30,6 +30,7 @@ struct MklDirectories {
 }
 
 impl MklDirectories {
+    /// Constructs paths required for linking MKL from the specified root folder. Checks if paths exist.
     fn try_new(mkl_root: &str) -> Result<Self, String> {
         let os = if cfg!(target_os = "windows") {
             "win"
@@ -187,20 +188,19 @@ impl ParseCallbacks for Callbacks {
 }
 
 fn main() {
-    if cfg!(not(any(
-        feature = "all",
-        feature = "dss",
-        feature = "sparse-matrix-checker",
-        feature = "extended-eigensolver",
-        feature = "inspector-executor"
-    ))) {
+    if cfg!(not(any(feature = "all",
+                    feature = "dss",
+                    feature = "sparse-matrix-checker",
+                    feature = "extended-eigensolver",
+                    feature = "inspector-executor"))) {
         panic!(
-            "No MKL modules selected.
+"No MKL modules selected.
 To use this library, please select the features corresponding \
 to MKL modules that you would like to use, or enable the `all` feature if you would \
-like to generate symbols for all modules."
-        );
+like to generate symbols for all modules.");
     }
+
+    let name = build_config_name();
 
     // Use information obtained from pkg-config to setup args for clang used by bindgen.
     // Otherwise we don't get e.g. the correct MKL preprocessor definitions).
@@ -256,28 +256,25 @@ like to generate symbols for all modules."
     // If only part of MKL is needed, we use features to construct whitelists of
     // the needed functionality. These can be overridden with the "all" feature, which
     // avoids whitelisting and instead encompasses everything.
-    #[cfg(not(feature = "all"))]
+    #[cfg(not(feature="all"))]
     {
-        #[cfg(feature = "dss")]
+        #[cfg(feature="dss")]
         {
             let dss_regex = "(dss_.*)|(DSS_.*)|(MKL_DSS.*)";
-            builder = builder
-                .whitelist_function(dss_regex)
+            builder = builder.whitelist_function(dss_regex)
                 .whitelist_type(dss_regex)
                 .whitelist_var(dss_regex);
         }
 
-        #[cfg(feature = "sparse-matrix-checker")]
+        #[cfg(feature="sparse-matrix-checker")]
         {
-            builder = builder
-                .whitelist_function("sparse_matrix_checker*")
+            builder = builder.whitelist_function("sparse_matrix_checker*")
                 .whitelist_function("sparse_matrix_checker_init*");
         }
 
-        #[cfg(feature = "extended-eigensolver")]
+        #[cfg(feature="extended-eigensolver")]
         {
-            builder = builder
-                .whitelist_function(".*feast.*")
+            builder = builder.whitelist_function(".*feast.*")
                 .whitelist_function("mkl_sparse_ee_init")
                 .whitelist_function("mkl_sparse_._svd")
                 .whitelist_function("mkl_sparse_._ev")
@@ -290,7 +287,9 @@ like to generate symbols for all modules."
         }
     }
 
-    let bindings = builder.generate().expect("Unable to generate bindings");
+    let bindings = builder
+        .generate()
+        .expect("Unable to generate bindings");
 
     // Write the bindings to the $OUT_DIR/bindings.rs file.
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
