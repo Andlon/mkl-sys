@@ -200,8 +200,6 @@ to MKL modules that you would like to use, or enable the `all` feature if you wo
 like to generate symbols for all modules.");
     }
 
-    let name = build_config_name();
-
     // Use information obtained from pkg-config to setup args for clang used by bindgen.
     // Otherwise we don't get e.g. the correct MKL preprocessor definitions).
     let clang_args = {
@@ -227,7 +225,7 @@ like to generate symbols for all modules.");
             Err(_) => {
                 let mklroot = match env::var("MKLROOT") {
                     Ok(mklroot) => mklroot,
-                    Err(_) => panic!("Environment variable 'MKLROOT' does not exist."),
+                    Err(_) => panic!("Environment variable 'MKLROOT' is not defined."),
                 };
 
                 let mkl_dirs = MklDirectories::try_new(&mklroot).unwrap();
