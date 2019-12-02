@@ -225,7 +225,9 @@ like to generate symbols for all modules.");
             Err(_) => {
                 let mklroot = match env::var("MKLROOT") {
                     Ok(mklroot) => mklroot,
-                    Err(_) => panic!("Environment variable 'MKLROOT' is not defined."),
+                    Err(_) => panic!(
+"Environment variable 'MKLROOT' is not defined and pkg-config was not found on 
+the system or it did not detect a MKL installation."),
                 };
 
                 let mkl_dirs = MklDirectories::try_new(&mklroot).unwrap();
