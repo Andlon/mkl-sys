@@ -22,8 +22,6 @@ fn build_config_name() -> String {
 
 /// Paths required for linking to MKL from MKLROOT folder
 struct MklDirectories {
-    #[allow(dead_code)]
-    mkl_root: String,
     lib_dir: String,
     omp_lib_dir: String,
     include_dir: String,
@@ -82,40 +80,25 @@ impl MklDirectories {
             .to_str()
             .ok_or("Unable to convert 'include_dir_path' to string")?;
 
-        // Check that paths exist
+        // Check if paths exist
 
         if !mkl_root_path.exists() {
-            return Err(format!(
-                "The 'mkl_root' folder with path '{}' does not exist.",
-                mkl_root_str
-            ));
+            println!("cargo:warning=The 'mkl_root' folder with path '{}' does not exist.", mkl_root_str);
         }
 
         if !lib_dir_path.exists() {
-            return Err(format!(
-                "The 'lib_dir_path' folder with path '{}' does not exist.",
-                lib_dir_str
-            ));
+            println!("cargo:warning=The 'lib_dir_path' folder with path '{}' does not exist.", lib_dir_str);
         }
 
         if cfg!(feature = "openmp") {
-            if !omp_lib_dir_path.exists() {
-                return Err(format!(
-                    "The 'omp_lib_dir_path' folder with path '{}' does not exist.",
-                    omp_lib_dir_str
-                ));
-            }
+            println!("cargo:warning=The 'omp_lib_dir_path' folder with path '{}' does not exist.", omp_lib_dir_str);
         }
 
         if !include_dir_path.exists() {
-            return Err(format!(
-                "The 'include_dir_path' folder with path '{}' does not exist.",
-                include_dir_str
-            ));
+            println!("cargo:warning=The 'include_dir_path' folder with path '{}' does not exist.", include_dir_str);
         }
 
         Ok(MklDirectories {
-            mkl_root: mkl_root_str.into(),
             lib_dir: lib_dir_str.into(),
             omp_lib_dir: omp_lib_dir_str.into(),
             include_dir: include_dir_str.into(),
@@ -228,7 +211,8 @@ like to generate symbols for all modules.");
                     Ok(mklroot) => mklroot,
                     Err(_) => panic!(
 "Environment variable 'MKLROOT' is not defined and pkg-config was not found on 
-the system or it did not detect a MKL installation."),
+the system or it could not find a MKL installation. Remember to run mklvars script 
+to set up the required environment variables."),
                 };
 
                 let mkl_dirs = MklDirectories::try_new(&mklroot).unwrap();
