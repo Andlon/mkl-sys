@@ -35,7 +35,8 @@ impl MklDirectories {
         let os = if cfg!(target_os = "windows") {
             "win"
         } else if cfg!(target_os = "linux") {
-            "lin"
+            //"lin"
+            return Err("Linux is currently not supported without pkg-config".into());
         } else {
             return Err("Target OS not supported".into());
         };
@@ -73,13 +74,13 @@ impl MklDirectories {
             .ok_or("Unable to convert 'mkl_root' to string")?;
         let lib_dir_str = lib_dir_path
             .to_str()
-            .ok_or("Unable to convert 'mkl_root' to string")?;
+            .ok_or("Unable to convert 'lib_dir_path' to string")?;
         let omp_lib_dir_str = omp_lib_dir_path
             .to_str()
-            .ok_or("Unable to convert 'mkl_root' to string")?;
+            .ok_or("Unable to convert 'omp_lib_dir_path' to string")?;
         let include_dir_str = include_dir_path
             .to_str()
-            .ok_or("Unable to convert 'mkl_root' to string")?;
+            .ok_or("Unable to convert 'include_dir_path' to string")?;
 
         // Check that paths exist
 
