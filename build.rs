@@ -20,6 +20,136 @@ fn build_config_name() -> String {
     format!("mkl-dynamic-{}-{}", integer_config, parallelism)
 }
 
+/// Paths required for linking to MKL from MKLROOT folder
+struct MklDirectories {
+    lib_dir: String,
+    omp_lib_dir: String,
+    include_dir: String,
+}
+
+impl MklDirectories {
+    /// Constructs paths required for linking MKL from the specified root folder. Checks if paths exist.
+    fn try_new(mkl_root: &str) -> Result<Self, String> {
+        let os = if cfg!(target_os = "windows") {
+            "win"
+        } else if cfg!(target_os = "linux") {
+            //"lin"
+            return Err("Linux is currently not supported without pkg-config".into());
+        } else {
+            return Err("Target OS not supported".into());
+        };
+
+        let arch = if cfg!(target_arch = "x86_64") {
+            "64"
+        } else {
+            return Err("Target architecture not supported".into());
+        };
+
+        let mkl_root: String = mkl_root.into();
+        let prefix: String = mkl_root.clone();
+        let exec_prefix: String = prefix.clone();
+        let lib_dir = format!(
+            "{exec_prefix}/lib/intel{arch}_{os}",
+            exec_prefix = exec_prefix,
+            arch = arch,
+            os = os
+        );
+        let omp_lib_dir = format!(
+            "{exec_prefix}/../compiler/lib/intel{arch}_{os}",
+            exec_prefix = exec_prefix,
+            arch = arch,
+            os = os
+        );
+        let include_dir = format!("{prefix}/include", prefix = prefix);
+
+        let mkl_root_path = PathBuf::from(mkl_root);
+        let lib_dir_path = PathBuf::from(lib_dir);
+        let omp_lib_dir_path = PathBuf::from(omp_lib_dir);
+        let include_dir_path = PathBuf::from(include_dir);
+
+        let mkl_root_str = mkl_root_path
+            .to_str()
+            .ok_or("Unable to convert 'mkl_root' to string")?;
+        let lib_dir_str = lib_dir_path
+            .to_str()
+            .ok_or("Unable to convert 'lib_dir_path' to string")?;
+        let omp_lib_dir_str = omp_lib_dir_path
+            .to_str()
+            .ok_or("Unable to convert 'omp_lib_dir_path' to string")?;
+        let include_dir_str = include_dir_path
+            .to_str()
+            .ok_or("Unable to convert 'include_dir_path' to string")?;
+
+        // Check if paths exist
+
+        if !mkl_root_path.exists() {
+            println!("cargo:warning=The 'mkl_root' folder with path '{}' does not exist.", mkl_root_str);
+        }
+
+        if !lib_dir_path.exists() {
+            println!("cargo:warning=The 'lib_dir_path' folder with path '{}' does not exist.", lib_dir_str);
+        }
+
+        if cfg!(feature = "openmp") {
+            println!("cargo:warning=The 'omp_lib_dir_path' folder with path '{}' does not exist.", omp_lib_dir_str);
+        }
+
+        if !include_dir_path.exists() {
+            println!("cargo:warning=The 'include_dir_path' folder with path '{}' does not exist.", include_dir_str);
+        }
+
+        Ok(MklDirectories {
+            lib_dir: lib_dir_str.into(),
+            omp_lib_dir: omp_lib_dir_str.into(),
+            include_dir: include_dir_str.into(),
+        })
+    }
+}
+
+fn lib_dirs_windows(mkl_dirs: &MklDirectories) -> Vec<String> {
+    if cfg!(feature = "openmp") {
+        vec![mkl_dirs.lib_dir.clone(), mkl_dirs.omp_lib_dir.clone()]
+    } else {
+        vec![mkl_dirs.lib_dir.clone()]
+    }
+}
+
+fn libs_windows() -> Vec<String> {
+    let libs_base = vec!["mkl_core_dll"];
+    let libs_seq = vec!["mkl_sequential_dll"];
+    let libs_omp = vec!["mkl_intel_thread_dll", "libiomp5md"];
+    let libs_lp64 = vec!["mkl_intel_lp64_dll"];
+    let libs_ilp64 = vec!["mkl_intel_ilp64_dll"];
+
+    let mut libs = libs_base;
+
+    if cfg!(feature = "openmp") {
+        libs.extend(libs_omp);
+    } else {
+        libs.extend(libs_seq);
+    };
+
+    if cfg!(feature = "ilp64") {
+        libs.extend(libs_ilp64)
+    } else {
+        libs.extend(libs_lp64)
+    };
+
+    libs.into_iter().map(|s| s.into()).collect()
+}
+
+fn cflags_windows(mkl_dirs: &MklDirectories) -> Vec<String> {
+    let mut cflags = Vec::new();
+
+    if cfg!(feature = "ilp64") {
+        cflags.push("-DMKL_ILP64".into());
+    }
+
+    cflags.push("--include-directory".into());
+    cflags.push(format!("{}", mkl_dirs.include_dir));
+    cflags
+}
+
 #[derive(Debug)]
 pub struct Callbacks;
 
@@ -54,24 +184,51 @@ to MKL modules that you would like to use, or enable the `all` feature if you wo
 like to generate symbols for all modules.");
     }
 
-    let name = build_config_name();
-    let library = pkg_config::probe_library(&name).unwrap();
-
     // Use information obtained from pkg-config to setup args for clang used by bindgen.
     // Otherwise we don't get e.g. the correct MKL preprocessor definitions).
     let clang_args = {
-        let mut args = Vec::new();
-        for (key, val) in library.defines {
-            if let Some(value) = val {
-                args.push(format!("-D{}={}", key, value));
-            } else {
-                args.push(format!("-D{}", key));
+        let name = build_config_name();
+
+        match pkg_config::probe_library(&name) {
+            // First try using pkg-config
+            Ok(library) => {
+                let mut args = Vec::new();
+                for (key, val) in library.defines {
+                    if let Some(value) = val {
+                        args.push(format!("-D{}={}", key, value));
+                    } else {
+                        args.push(format!("-D{}", key));
+                    }
+                }
+                for path in library.include_paths {
+                    args.push(format!("-I{}", path.display()));
+                }
+                args
+            }
+            // Otherwise use hardcoded paths relative to MKLROOT
+            Err(_) => {
+                let mklroot = match env::var("MKLROOT") {
+                    Ok(mklroot) => mklroot,
+                    Err(_) => panic!(
+"Environment variable 'MKLROOT' is not defined and pkg-config was not found on 
+the system or it could not find a MKL installation. Remember to run mklvars script 
+to set up the required environment variables."),
+                };
+
+                let mkl_dirs = MklDirectories::try_new(&mklroot).unwrap();
+
+                for lib_dir in lib_dirs_windows(&mkl_dirs) {
+                    println!("cargo:rustc-link-search=native={}", lib_dir);
+                }
+
+                for lib in libs_windows() {
+                    println!("cargo:rustc-link-lib={}", lib);
+                }
+
+                let args = cflags_windows(&mkl_dirs);
+                args
             }
         }
-        for path in library.include_paths {
-            args.push(format!("-I{}", path.display()));
-        }
-        args
     };
 
     #[allow(unused_mut)]
