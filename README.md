@@ -1,5 +1,7 @@
 # mkl-sys
 
+[![Build Status](https://github.com/Andlon/mkl-sys/workflows/Build%20and%20run%20tests/badge.svg)](https://github.com/Andlon/mkl-sys/actions)
+
 Auto-generated bindings to Intel MKL. Currently only tested on Linux, and not considered stable/ready for production use.
 
 This crate relies on Intel MKL having been installed on the target system,
