@@ -47,9 +47,10 @@ jobs:
         source /opt/intel/mkl/bin/mklvars.sh intel64
         cargo test --release --features "all" --verbose
 
-  build_windows:
 
-    name: Test on Windows
+  build_windows_mkl2019:
+
+    name: Test on Windows (MKL 2019.5)
     runs-on: windows-latest
 
     steps:
@@ -152,3 +153,85 @@ jobs:
           set LIBCLANG_PATH=%cd%\clang\bin
           cargo test --release --features "all" --verbose
         shell: cmd
+
+
+  build_windows_mkl2020:
+
+    name: Test on Windows (MKL 2020.0)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v1
+
+      # Caching of MKL and clang does not work due to cache size limitations of Github
+
+      # - name: Cache MKL installation
+      #   id: cache-mkl-installation
+      #   uses: actions/cache@v1
+      #   with:
+      #     path: mkl
+      #     key: ${{ runner.os }}-mkl-installed-w_mkl_2020.0.166
+      - name: Download MKL installer
+        #if: steps.cache-mkl-installation.outputs.cache-hit != 'true'
+        run: (New-Object System.Net.WebClient).DownloadFile("http://registrationcenter-download.intel.com/akdlm/irc_nas/tec/16222/w_mkl_2020.0.166.exe", "$(($pwd).path)\w_mkl_2020.0.166.exe")
+        shell: pwsh
+      - name: Extract MKL installer files
+        #if: steps.cache-mkl-installation.outputs.cache-hit != 'true'
+        run: Start-Process .\w_mkl_2020.0.166.exe -ArgumentList @("--silent", "--extract-folder", "$(($pwd).path)\mkl-installer", "--extract-only") -Wait
+        shell: pwsh
+      - name: Install MKL
+        #if: steps.cache-mkl-installation.outputs.cache-hit != 'true'
+        run: Start-Process .\mkl-installer\install.exe -ArgumentList @("install", "--output=$(($pwd).path)\log.txt", "--eula=accept", "--installdir=$(($pwd).path)\mkl") -Wait
+        shell: pwsh
+
+      # - name: Cache Clang installation
+      #   id: cache-clang-installation
+      #   uses: actions/cache@v1
+      #   with:
+      #     path: clang
+      #     key: ${{ runner.os }}-clang-installed-LLVM-9.0.0-win64
+      - name: Download Clang
+        #if: steps.cache-clang-installation.outputs.cache-hit != 'true'
+        run: (New-Object System.Net.WebClient).DownloadFile("https://releases.llvm.org/9.0.0/LLVM-9.0.0-win64.exe", "$(($pwd).path)\LLVM-9.0.0-win64.exe")
+        shell: pwsh
+      - name: Install Clang
+        #if: steps.cache-clang-installation.outputs.cache-hit != 'true'
+        run: Start-Process .\LLVM-9.0.0-win64.exe -ArgumentList @("/S", "/NCRC", "/D=$(($pwd).path)\clang") -Wait
+        shell: pwsh
+
+      - name: Update Rust
+        run: rustup update
+        shell: pwsh
+
+      # The following steps have to be run in CMD in order to get the environment variables from the .bat scripts
+
+      - name: Build (--features "dss")
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          call .\mkl\compilers_and_libraries\windows\mkl\bin\mklvars.bat intel64
+          set LIBCLANG_PATH=%cd%\clang\bin
+          cargo build --features "dss" --verbose
+        shell: cmd
+      - name: Run tests (--features "dss")
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          call .\mkl\compilers_and_libraries\windows\mkl\bin\mklvars.bat intel64
+          set LIBCLANG_PATH=%cd%\clang\bin
+          cargo test --features "dss" --verbose
+        shell: cmd
+
+      - name: Build (--release --features "all")
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          call .\mkl\compilers_and_libraries\windows\mkl\bin\mklvars.bat intel64
+          set LIBCLANG_PATH=%cd%\clang\bin
+          cargo build --release --features "all" --verbose
+        shell: cmd
+      - name: Run tests (--release --features "all")
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          call .\mkl\compilers_and_libraries\windows\mkl\bin\mklvars.bat intel64
+          set LIBCLANG_PATH=%cd%\clang\bin
+          cargo test --release --features "all" --verbose
+        shell: cmd
+
