@@ -1,20 +1,20 @@
+use bindgen::callbacks::{IntKind, ParseCallbacks};
+use bindgen::EnumVariation;
 use std::env;
 use std::path::PathBuf;
-use bindgen::callbacks::{ParseCallbacks, IntKind};
-use bindgen::EnumVariation;
 
 /// Build the name used for pkg-config library resolution, e.g. "mkl-dynamic-lp64-seq".
 fn build_config_name() -> String {
-    let parallelism = if cfg!(feature = "openmp") {
-        "iomp"
-    } else {
-        "seq"
-    };
-
     let integer_config = if cfg!(feature = "ilp64") {
         "ilp64"
     } else {
         "lp64"
+    };
+
+    let parallelism = if cfg!(feature = "openmp") {
+        "iomp"
+    } else {
+        "seq"
     };
 
     format!("mkl-dynamic-{}-{}", integer_config, parallelism)
@@ -33,8 +33,7 @@ impl MklDirectories {
         let os = if cfg!(target_os = "windows") {
             "win"
         } else if cfg!(target_os = "linux") {
-            //"lin"
-            return Err("Linux is currently not supported without pkg-config".into());
+            "lin"
         } else {
             return Err("Target OS not supported".into());
         };
@@ -83,19 +82,31 @@ impl MklDirectories {
         // Check if paths exist
 
         if !mkl_root_path.exists() {
-            println!("cargo:warning=The 'mkl_root' folder with path '{}' does not exist.", mkl_root_str);
+            println!(
+                "cargo:warning=The 'mkl_root' folder with path '{}' does not exist.",
+                mkl_root_str
+            );
         }
 
         if !lib_dir_path.exists() {
-            println!("cargo:warning=The 'lib_dir_path' folder with path '{}' does not exist.", lib_dir_str);
+            println!(
+                "cargo:warning=The 'lib_dir_path' folder with path '{}' does not exist.",
+                lib_dir_str
+            );
         }
 
-        if cfg!(feature = "openmp") {
-            println!("cargo:warning=The 'omp_lib_dir_path' folder with path '{}' does not exist.", omp_lib_dir_str);
+        if cfg!(feature = "openmp") && !omp_lib_dir_path.exists() {
+            println!(
+                "cargo:warning=The 'omp_lib_dir_path' folder with path '{}' does not exist.",
+                omp_lib_dir_str
+            );
         }
 
         if !include_dir_path.exists() {
-            println!("cargo:warning=The 'include_dir_path' folder with path '{}' does not exist.", include_dir_str);
+            println!(
+                "cargo:warning=The 'include_dir_path' folder with path '{}' does not exist.",
+                include_dir_str
+            );
         }
 
         Ok(MklDirectories {
@@ -106,7 +117,7 @@ impl MklDirectories {
     }
 }
 
-fn lib_dirs_windows(mkl_dirs: &MklDirectories) -> Vec<String> {
+fn get_lib_dirs(mkl_dirs: &MklDirectories) -> Vec<String> {
     if cfg!(feature = "openmp") {
         vec![mkl_dirs.lib_dir.clone(), mkl_dirs.omp_lib_dir.clone()]
     } else {
@@ -114,7 +125,7 @@ fn lib_dirs_windows(mkl_dirs: &MklDirectories) -> Vec<String> {
     }
 }
 
-fn libs_windows() -> Vec<String> {
+fn get_link_libs_windows() -> Vec<String> {
     let libs_base = vec!["mkl_core_dll"];
     let libs_seq = vec!["mkl_sequential_dll"];
     let libs_omp = vec!["mkl_intel_thread_dll", "libiomp5md"];
@@ -138,7 +149,41 @@ fn libs_windows() -> Vec<String> {
     libs.into_iter().map(|s| s.into()).collect()
 }
 
-fn cflags_windows(mkl_dirs: &MklDirectories) -> Vec<String> {
+fn get_link_libs_linux() -> Vec<String> {
+    let libs_base = vec!["mkl_rt", "mkl_core", "pthread", "m", "dl"];
+    let libs_seq = vec!["mkl_sequential"];
+    let libs_omp = vec!["mkl_intel_thread", "iomp5"];
+    let libs_lp64 = vec!["mkl_intel_lp64"];
+    let libs_ilp64 = vec!["mkl_intel_ilp64"];
+
+    let mut libs = libs_base;
+
+    if cfg!(feature = "openmp") {
+        libs.extend(libs_omp);
+    } else {
+        libs.extend(libs_seq);
+    };
+
+    if cfg!(feature = "ilp64") {
+        libs.extend(libs_ilp64)
+    } else {
+        libs.extend(libs_lp64)
+    };
+
+    libs.into_iter().map(|s| s.into()).collect()
+}
+
+fn get_link_libs() -> Vec<String> {
+    if cfg!(target_os = "windows") {
+        get_link_libs_windows()
+    } else if cfg!(target_os = "linux") {
+        get_link_libs_linux()
+    } else {
+        panic!("Target OS not supported");
+    }
+}
+
+fn get_cflags_windows(mkl_dirs: &MklDirectories) -> Vec<String> {
     let mut cflags = Vec::new();
 
     if cfg!(feature = "ilp64") {
@@ -148,6 +193,28 @@ fn cflags_windows(mkl_dirs: &MklDirectories) -> Vec<String> {
     cflags.push("--include-directory".into());
     cflags.push(format!("{}", mkl_dirs.include_dir));
     cflags
+}
+
+fn get_cflags_linux(mkl_dirs: &MklDirectories) -> Vec<String> {
+    let mut cflags = Vec::new();
+
+    if cfg!(feature = "ilp64") {
+        cflags.push("-DMKL_ILP64".into());
+    }
+
+    cflags.push("-I".into());
+    cflags.push(format!("{}", mkl_dirs.include_dir));
+    cflags
+}
+
+fn get_cflags(mkl_dirs: &MklDirectories) -> Vec<String> {
+    if cfg!(target_os = "windows") {
+        get_cflags_windows(mkl_dirs)
+    } else if cfg!(target_os = "linux") {
+        get_cflags_linux(mkl_dirs)
+    } else {
+        panic!("Target OS not supported");
+    }
 }
 
 #[derive(Debug)]
@@ -172,16 +239,19 @@ impl ParseCallbacks for Callbacks {
 }
 
 fn main() {
-    if cfg!(not(any(feature = "all",
-                    feature = "dss",
-                    feature = "sparse-matrix-checker",
-                    feature = "extended-eigensolver",
-                    feature = "inspector-executor"))) {
+    if cfg!(not(any(
+        feature = "all",
+        feature = "dss",
+        feature = "sparse-matrix-checker",
+        feature = "extended-eigensolver",
+        feature = "inspector-executor"
+    ))) {
         panic!(
-"No MKL modules selected.
+            "No MKL modules selected.
 To use this library, please select the features corresponding \
 to MKL modules that you would like to use, or enable the `all` feature if you would \
-like to generate symbols for all modules.");
+like to generate symbols for all modules."
+        );
     }
 
     // Use information obtained from pkg-config to setup args for clang used by bindgen.
@@ -217,15 +287,15 @@ to set up the required environment variables."),
 
                 let mkl_dirs = MklDirectories::try_new(&mklroot).unwrap();
 
-                for lib_dir in lib_dirs_windows(&mkl_dirs) {
+                for lib_dir in get_lib_dirs(&mkl_dirs) {
                     println!("cargo:rustc-link-search=native={}", lib_dir);
                 }
 
-                for lib in libs_windows() {
+                for lib in get_link_libs() {
                     println!("cargo:rustc-link-lib={}", lib);
                 }
 
-                let args = cflags_windows(&mkl_dirs);
+                let args = get_cflags(&mkl_dirs);
                 args
             }
         }
@@ -241,25 +311,28 @@ to set up the required environment variables."),
     // If only part of MKL is needed, we use features to construct whitelists of
     // the needed functionality. These can be overridden with the "all" feature, which
     // avoids whitelisting and instead encompasses everything.
-    #[cfg(not(feature="all"))]
+    #[cfg(not(feature = "all"))]
     {
-        #[cfg(feature="dss")]
+        #[cfg(feature = "dss")]
         {
             let dss_regex = "(dss_.*)|(DSS_.*)|(MKL_DSS.*)";
-            builder = builder.whitelist_function(dss_regex)
+            builder = builder
+                .whitelist_function(dss_regex)
                 .whitelist_type(dss_regex)
                 .whitelist_var(dss_regex);
         }
 
-        #[cfg(feature="sparse-matrix-checker")]
+        #[cfg(feature = "sparse-matrix-checker")]
         {
-            builder = builder.whitelist_function("sparse_matrix_checker*")
+            builder = builder
+                .whitelist_function("sparse_matrix_checker*")
                 .whitelist_function("sparse_matrix_checker_init*");
         }
 
-        #[cfg(feature="extended-eigensolver")]
+        #[cfg(feature = "extended-eigensolver")]
         {
-            builder = builder.whitelist_function(".*feast.*")
+            builder = builder
+                .whitelist_function(".*feast.*")
                 .whitelist_function("mkl_sparse_ee_init")
                 .whitelist_function("mkl_sparse_._svd")
                 .whitelist_function("mkl_sparse_._ev")
@@ -272,9 +345,7 @@ to set up the required environment variables."),
         }
     }
 
-    let bindings = builder
-        .generate()
-        .expect("Unable to generate bindings");
+    let bindings = builder.generate().expect("Unable to generate bindings");
 
     // Write the bindings to the $OUT_DIR/bindings.rs file.
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
