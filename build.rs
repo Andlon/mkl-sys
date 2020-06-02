@@ -126,7 +126,7 @@ fn get_lib_dirs(mkl_dirs: &MklDirectories) -> Vec<String> {
 }
 
 fn get_link_libs_windows() -> Vec<String> {
-    let libs_base = vec!["mkl_core_dll"];
+    let libs_base = vec!["mkl_rt", "mkl_core_dll"];
     let libs_seq = vec!["mkl_sequential_dll"];
     let libs_omp = vec!["mkl_intel_thread_dll", "libiomp5md"];
     let libs_lp64 = vec!["mkl_intel_lp64_dll"];
