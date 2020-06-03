@@ -6,8 +6,12 @@ Auto-generated bindings to Intel MKL. Currently only tested on Linux, and not co
 
 This crate relies on Intel MKL having been installed on the target system,
 and that the environment is set up for use with MKL.
-It uses `pkg-config` to determine library paths. The easiest way to make it work is to run the provided
-`mklvars.sh` setup script that is bundled with MKL.
+The easiest way to make it work is to run the provided `mklvars.sh` setup script that is bundled with MKL.
+This sets up the environment for use with MKL. This crate then detects the correct Intel MKL installation
+by inspecting the value of the `MKLROOT` environment variable.
+
+Note that we used to support `pkg-config`, but as of Intel MKL 2020, Intel is shipping broken
+configurations. Therefore we instead directly rely on the value of `MKLROOT`.
 
 ## Windows support
 
@@ -31,13 +35,20 @@ During runtime the corresponding redistributable DLLs of MKL (e.g. located in `C
 ## Known issues
 - `bindgen` does not seem to be able to properly handle many preprocessor macros, such as e.g. `dss_create`.
 This appears to be related to [this issue](https://github.com/rust-lang/rust-bindgen/issues/753).
-- Generating bindings for the entire MKL library takes a lot of time. This is a significant issue for debug
-builds, as we currently have no way of forcing optimizations for `bindgen` when dependent projects are
-built without optimizations. To circumvent this, you should use features to enable binding generation
-only for the parts of the library that you will need. For example, the `dss` feature generates bindings for the
-Direct Sparse Solver (DSS) interface.
+- Generating bindings for the entire MKL library might take a lot of time. To circumvent this, you should use features
+to enable binding generation only for the parts of the library that you will need. For example, the `dss` feature
+generates bindings for the Direct Sparse Solver (DSS) interface.
 
-The API exposed by this crate should be considered unstable until these issues have been resolved.
+A second approach that alleviates long build times due to `bindgen` is to use the following profile override
+in your application's TOML file:
+
+```toml
+[profile.dev.package.bindgen]
+opt-level = 2
+```
+
+This ensures that bindgen is compiled with optimizations on, significantly improving its runtime when
+invoked by the build script in `mkl-sys`.
 
 ## License
 Intel MKL is provided by Intel and licensed separately.
