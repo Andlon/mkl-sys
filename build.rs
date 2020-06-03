@@ -3,23 +3,6 @@ use bindgen::EnumVariation;
 use std::env;
 use std::path::PathBuf;
 
-/// Build the name used for pkg-config library resolution, e.g. "mkl-dynamic-lp64-seq".
-fn build_config_name() -> String {
-    let integer_config = if cfg!(feature = "ilp64") {
-        "ilp64"
-    } else {
-        "lp64"
-    };
-
-    let parallelism = if cfg!(feature = "openmp") {
-        "iomp"
-    } else {
-        "seq"
-    };
-
-    format!("mkl-dynamic-{}-{}", integer_config, parallelism)
-}
-
 /// Paths required for linking to MKL from MKLROOT folder
 struct MklDirectories {
     lib_dir: String,
@@ -126,49 +109,52 @@ fn get_lib_dirs(mkl_dirs: &MklDirectories) -> Vec<String> {
 }
 
 fn get_link_libs_windows() -> Vec<String> {
-    let libs_base = vec!["mkl_rt", "mkl_core_dll"];
-    let libs_seq = vec!["mkl_sequential_dll"];
-    let libs_omp = vec!["mkl_intel_thread_dll", "libiomp5md"];
-    let libs_lp64 = vec!["mkl_intel_lp64_dll"];
-    let libs_ilp64 = vec!["mkl_intel_ilp64_dll"];
-
-    let mut libs = libs_base;
-
-    if cfg!(feature = "openmp") {
-        libs.extend(libs_omp);
-    } else {
-        libs.extend(libs_seq);
-    };
+    // Note: The order of the libraries is very important
+    let mut libs = Vec::new();
 
     if cfg!(feature = "ilp64") {
-        libs.extend(libs_ilp64)
+        libs.push("mkl_intel_ilp64_dll");
     } else {
-        libs.extend(libs_lp64)
+        libs.push("mkl_intel_lp64_dll");
     };
+
+    if cfg!(feature = "openmp") {
+        libs.push("mkl_intel_thread_dll");
+    } else {
+        libs.push("mkl_sequential_dll");
+    };
+
+    libs.push("mkl_core_dll");
+
+    if cfg!(feature = "openmp") {
+        libs.push("libiomp5md");
+    }
 
     libs.into_iter().map(|s| s.into()).collect()
 }
 
 fn get_link_libs_linux() -> Vec<String> {
-    let libs_base = vec!["mkl_rt", "mkl_core", "pthread", "m", "dl"];
-    let libs_seq = vec!["mkl_sequential"];
-    let libs_omp = vec!["mkl_intel_thread", "iomp5"];
-    let libs_lp64 = vec!["mkl_intel_lp64"];
-    let libs_ilp64 = vec!["mkl_intel_ilp64"];
-
-    let mut libs = libs_base;
-
-    if cfg!(feature = "openmp") {
-        libs.extend(libs_omp);
-    } else {
-        libs.extend(libs_seq);
-    };
+    // Note: The order of the libraries is very important
+    let mut libs = Vec::new();
 
     if cfg!(feature = "ilp64") {
-        libs.extend(libs_ilp64)
+        libs.push("mkl_intel_ilp64");
     } else {
-        libs.extend(libs_lp64)
+        libs.push("mkl_intel_lp64");
     };
+
+    if cfg!(feature = "openmp") {
+        libs.push("mkl_intel_thread");
+    } else {
+        libs.push("mkl_sequential");
+    };
+
+    libs.push("mkl_core");
+
+    if cfg!(feature = "openmp") {
+        libs.push("iomp5");
+    }
+    libs.extend(vec!["pthread", "m", "dl"]);
 
     libs.into_iter().map(|s| s.into()).collect()
 }
@@ -254,51 +240,28 @@ like to generate symbols for all modules."
         );
     }
 
-    // Use information obtained from pkg-config to setup args for clang used by bindgen.
+    // Link with the proper MKL libraries and simultaneously set up arguments for bindgen.
     // Otherwise we don't get e.g. the correct MKL preprocessor definitions).
     let clang_args = {
-        let name = build_config_name();
+        let mklroot = match env::var("MKLROOT") {
+            Ok(mklroot) => mklroot,
+            Err(_) => panic!(
+"Environment variable 'MKLROOT' is not defined. Remember to run the mklvars script bundled
+with MKL in order to set up the required environment variables."),
+        };
 
-        match pkg_config::probe_library(&name) {
-            // First try using pkg-config
-            Ok(library) => {
-                let mut args = Vec::new();
-                for (key, val) in library.defines {
-                    if let Some(value) = val {
-                        args.push(format!("-D{}={}", key, value));
-                    } else {
-                        args.push(format!("-D{}", key));
-                    }
-                }
-                for path in library.include_paths {
-                    args.push(format!("-I{}", path.display()));
-                }
-                args
-            }
-            // Otherwise use hardcoded paths relative to MKLROOT
-            Err(_) => {
-                let mklroot = match env::var("MKLROOT") {
-                    Ok(mklroot) => mklroot,
-                    Err(_) => panic!(
-"Environment variable 'MKLROOT' is not defined and pkg-config was not found on 
-the system or it could not find a MKL installation. Remember to run mklvars script 
-to set up the required environment variables."),
-                };
+        let mkl_dirs = MklDirectories::try_new(&mklroot).unwrap();
 
-                let mkl_dirs = MklDirectories::try_new(&mklroot).unwrap();
-
-                for lib_dir in get_lib_dirs(&mkl_dirs) {
-                    println!("cargo:rustc-link-search=native={}", lib_dir);
-                }
-
-                for lib in get_link_libs() {
-                    println!("cargo:rustc-link-lib={}", lib);
-                }
-
-                let args = get_cflags(&mkl_dirs);
-                args
-            }
+        for lib_dir in get_lib_dirs(&mkl_dirs) {
+            println!("cargo:rustc-link-search=native={}", lib_dir);
         }
+
+        for lib in get_link_libs() {
+            println!("cargo:rustc-link-lib={}", lib);
+        }
+
+        let args = get_cflags(&mkl_dirs);
+        args
     };
 
     #[allow(unused_mut)]
@@ -306,6 +269,8 @@ to set up the required environment variables."),
         .header("wrapper.h")
         .parse_callbacks(Box::new(Callbacks))
         .default_enum_style(EnumVariation::ModuleConsts)
+        .impl_debug(true)
+        .derive_debug(true)
         .clang_args(clang_args);
 
     // If only part of MKL is needed, we use features to construct whitelists of
