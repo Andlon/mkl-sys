@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/Andlon/mkl-sys/workflows/Build%20and%20run%20tests/badge.svg)](https://github.com/Andlon/mkl-sys/actions)
 
-Auto-generated bindings to Intel MKL. Currently only tested on Linux, and not considered stable/ready for production use.
+Auto-generated bindings to Intel MKL. Currently only supports Linux and Windows, and not considered stable/ready for production use. Only tested with Intel MKL 2019 and 2020.
 
 This crate relies on Intel MKL having been installed on the target system,
 and that the environment is set up for use with MKL.
